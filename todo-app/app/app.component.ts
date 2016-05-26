@@ -14,7 +14,7 @@ export class AppComponent implements OnInit {
   private list: Array<Todo> = new Array();
 
   constructor(private ts: TodoApi) {
-      this.ts.setBaseURL('http://192.168.0.166:3000/api');
+      this.ts.setBaseURL('http://192.168.0.1:3000/api');
   }
 
   ngOnInit() {
@@ -29,13 +29,6 @@ export class AppComponent implements OnInit {
   }
   
   getTodos(): void {
-    this.ts.find().subscribe(res => {
-      alert(res);
-      (this.list = res)
-    });
-  }
-  
-  removeItem(item: Todo): void {
-    alert(JSON.stringify(item));
+    this.ts.find().subscribe(res => (this.list = res));
   }
 }
