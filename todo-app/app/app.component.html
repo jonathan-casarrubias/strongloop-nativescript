@@ -1,0 +1,9 @@
+<StackLayout class="p-md">
+  <TextField [(ngModel)]="todo.text" hint="Add New Todo"></TextField>
+  <Button text="Add" (tap)="addTodo()"></Button>
+  <ListView [items]="list" class="small-spacing">
+    <template let-item="item">
+      <Label [text]="item.text" class="p-lg"></Label>
+    </template>
+  </ListView>
+</StackLayout>

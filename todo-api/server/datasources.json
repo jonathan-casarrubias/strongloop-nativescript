@@ -1,0 +1,10 @@
+{
+  "db": {
+    "name": "db",
+    "connector": "memory"
+  },
+  "mongodb": {
+    "connector": "mongodb",
+    "url": "mongodb://todo-app:todo-app@ds013981.mlab.com:13981/heroku_3tg1m5c0"
+  }
+}
