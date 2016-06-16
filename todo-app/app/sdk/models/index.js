@@ -2,5 +2,7 @@
 function __export(m) {
     for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 }
-__export(require('./todo'));
+/* tslint:disable */
+__export(require('./User'));
+__export(require('./Todo'));
 //# sourceMappingURL=index.js.map

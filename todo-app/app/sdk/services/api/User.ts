@@ -1,195 +1,15 @@
 /* tslint:disable */
-import {Injectable, Inject, Optional} from '@angular/core';
-import {Http, Headers, Request, Response} from '@angular/http';
-import {Observable} from 'rxjs/Observable';
+import { Injectable, Inject, Optional } from '@angular/core';
+import { Http } from '@angular/http';
+import { BaseLoopBackApi } from '../baseApi.service';
+import { LoopBackConfig } from '../config.service';
+import { LoopBackAuth } from '../auth.service';
+import { ErrorHandler } from '../errorHandler.service';
+import { LoopBackFilterInterface } from '../api.d';
 import 'rxjs/add/observable/throw';
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/catch';
 import 'rxjs/add/operator/share';
-import * as AppSettings from 'application-settings';
-
-export interface LoopBackFilterInterface {
-  fields?: any;
-  include?: any;
-  limit?: any;
-  order?: any;
-  skip?: any;
-  offset?: any;
-  where?: any;
-}
-
-class LoopBackAuth {
-  protected accessTokenId: any;
-  protected currentUserId: any;
-  protected rememberMe: boolean;
-  protected currentUserData: any;
-
-  protected propsPrefix: string = '$LoopBack$';
-
-  constructor() {
-    this.accessTokenId = this.load("accessTokenId");
-    this.currentUserId = this.load("currentUserId");
-    this.rememberMe = this.load("rememberMe");
-    this.currentUserData = null;
-  }
-
-  public setRememberMe(value: boolean): LoopBackAuth {
-    this.rememberMe = value;
-    return this;
-  }
-
-  public getCurrentUserId(): any {
-    return this.currentUserId;
-  }
-
-  public setCurrentUserData(data: any): LoopBackAuth {
-    this.currentUserData = data;
-    return this;
-  }
-
-  public getCurrentUserData(): any {
-    return this.currentUserData;
-  }
-
-  public getAccessTokenId(): any {
-    return this.accessTokenId;
-  }
-
-  public save() {
-    this.saveThis("accessTokenId", this.accessTokenId);
-    this.saveThis("currentUserId", this.currentUserId);
-    this.saveThis("rememberMe", this.rememberMe);
-  };
-
-  public setUser(accessTokenId: any, userId: any, userData: any) {
-    this.accessTokenId = accessTokenId;
-    this.currentUserId = userId;
-    this.currentUserData = userData;
-  }
-
-  public clearUser() {
-    this.accessTokenId = null;
-    this.currentUserId = null;
-    this.currentUserData = null;
-  }
-
-  public clearStorage() {
-    this.saveThis("accessTokenId", null);
-    this.saveThis("accessTokenId", null);
-    this.saveThis("currentUserId", null);
-    this.saveThis("currentUserId", null);
-    this.saveThis("rememberMe", null);
-    this.saveThis("rememberMe", null);
-  };
-
-  // Note: LocalStorage converts the value to string
-  // We are using empty string as a marker for null/undefined values.
-  protected saveThis(name: string, value: any) {
-    try {
-      var key = this.propsPrefix + name;
-      if (value == null) {
-        value = '';
-      }
-      AppSettings.setString(key, value);
-    }
-    catch(err) {
-      console.log('Cannot access local/session storage:', err);
-    }
-  }
-
-  protected load(name: string): any {
-    var key = this.propsPrefix + name;
-    return AppSettings.getString(key);
-  }
-}
-
-let auth = new LoopBackAuth();
-
-
-/**
- * Default error handler
- */
-export class ErrorHandler {
-  public handleError(error: Response) {
-    return Observable.throw(error.json().error || 'Server error');
-  }
-}
-
-@Injectable()
-export abstract class BaseLoopBackApi {
-
-  protected path: string;
-
-  constructor(
-    @Inject(Http) protected http: Http, 
-    @Optional() @Inject(ErrorHandler) protected errorHandler: ErrorHandler
-  ) {
-    if (!errorHandler) {
-      this.errorHandler = new ErrorHandler();
-    }
-    this.init();
-  }
-
-  /**
-   * Get path for building part of URL for API
-   * @return string
-   */
-  protected getPath(): string {
-    return this.path;
-  }
-  /**
-   * Set path for building part of URL for API
-   * @return string
-   */
-  public setBaseURL(url: string = "/api"): void {
-    this.path = url;
-  }
-
-  protected init() {
-    this.setBaseURL("/api");
-  }
-
-  /**
-   * Process request
-   * @param string  method    Request method (GET, POST, PUT)
-   * @param string  url       Request url (my-host/my-url/:id)
-   * @param any     urlParams Values of url parameters
-   * @param any     params    Parameters for building url (filter and other)
-   * @param any     data      Request body
-   */
-  public request(method: string, url: string, urlParams: any = {}, 
-                 params: any = {}, data: any = null) {
-    let headers = new Headers();
-    headers.append('Content-Type', 'application/json');
-
-    if (auth.getAccessTokenId()) {
-      headers.append('Authorization', auth.getAccessTokenId());
-    }
-
-    let requestUrl = url;
-    let key: string;
-    for (key in urlParams) {
-      requestUrl = requestUrl.replace(new RegExp(":" + key + "(\/|$)", "g"), urlParams[key] + "$1");
-    }
-
-    let parameters: string[] = [];
-    for (var param in params) {
-      parameters.push(param + '=' + (typeof params[param] === 'object' ? JSON.stringify(params[param]) : params[param]));
-    }
-    requestUrl += (parameters ? '?' : '') + parameters.join('&');
-
-    let request = new Request({
-      headers: headers,
-      method: method,
-      url: requestUrl,
-      body: data ? JSON.stringify(data) : undefined
-    });
-
-    return this.http.request(request)
-      .map(res => (res.text() != "" ? res.json() : {}))
-      .catch(this.errorHandler.handleError);
-  }
-}
 
 /**
  * Api for the `User` model.
@@ -199,9 +19,10 @@ export class UserApi extends BaseLoopBackApi {
 
   constructor(
     @Inject(Http) http: Http,
+    @Inject(LoopBackAuth) protected auth: LoopBackAuth, 
     @Optional() @Inject(ErrorHandler) errorHandler: ErrorHandler
   ) {
-    super(http, errorHandler);
+    super(http, auth, errorHandler);
   }
 
   /**
@@ -220,10 +41,10 @@ export class UserApi extends BaseLoopBackApi {
    * This usually means the response is a `User` object.)
    * </em>
    */
-  public __findById__accessTokens(id: any, fk: any) {
+  public findByIdAccessTokens(id: any, fk: any) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens/:fk";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens/:fk";
     let urlParams: any = {
       id: id,
       fk: fk
@@ -248,10 +69,10 @@ export class UserApi extends BaseLoopBackApi {
    *
    * This method returns no data.
    */
-  public __destroyById__accessTokens(id: any, fk: any) {
+  public destroyByIdAccessTokens(id: any, fk: any) {
     let method: string = "DELETE";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens/:fk";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens/:fk";
     let urlParams: any = {
       id: id,
       fk: fk
@@ -283,10 +104,10 @@ export class UserApi extends BaseLoopBackApi {
    * This usually means the response is a `User` object.)
    * </em>
    */
-  public __updateById__accessTokens(id: any, fk: any, data: any = undefined) {
+  public updateByIdAccessTokens(id: any, fk: any, data: any = undefined) {
     let method: string = "PUT";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens/:fk";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens/:fk";
     let urlParams: any = {
       id: id,
       fk: fk
@@ -314,10 +135,10 @@ export class UserApi extends BaseLoopBackApi {
    * This usually means the response is a `User` object.)
    * </em>
    */
-  public __get__accessTokens(id: any, filter: LoopBackFilterInterface = undefined) {
+  public getAccessTokens(id: any, filter: LoopBackFilterInterface = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens";
     let urlParams: any = {
       id: id
     };
@@ -349,10 +170,10 @@ export class UserApi extends BaseLoopBackApi {
    * This usually means the response is a `User` object.)
    * </em>
    */
-  public __create__accessTokens(id: any, data: any = undefined) {
+  public createAccessTokens(id: any, data: any = undefined) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens";
     let urlParams: any = {
       id: id
     };
@@ -374,10 +195,10 @@ export class UserApi extends BaseLoopBackApi {
    *
    * This method returns no data.
    */
-  public __delete__accessTokens(id: any) {
+  public deleteAccessTokens(id: any) {
     let method: string = "DELETE";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens";
     let urlParams: any = {
       id: id
     };
@@ -403,10 +224,10 @@ export class UserApi extends BaseLoopBackApi {
    *
    *  - `count` – `{number}` - 
    */
-  public __count__accessTokens(id: any, where: any = undefined) {
+  public countAccessTokens(id: any, where: any = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/:id/accessTokens/count";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/accessTokens/count";
     let urlParams: any = {
       id: id
     };
@@ -436,7 +257,7 @@ export class UserApi extends BaseLoopBackApi {
   public create(data: any = undefined) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users";
     let urlParams: any = {
     };
 
@@ -465,7 +286,7 @@ export class UserApi extends BaseLoopBackApi {
   public createMany(data: any = undefined) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users";
     let urlParams: any = {
     };
 
@@ -494,7 +315,7 @@ export class UserApi extends BaseLoopBackApi {
   public upsert(data: any = undefined) {
     let method: string = "PUT";
 
-    let url: string = this.getPath() + "/Users";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users";
     let urlParams: any = {
     };
 
@@ -520,7 +341,7 @@ export class UserApi extends BaseLoopBackApi {
   public exists(id: any) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/:id/exists";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id/exists";
     let urlParams: any = {
       id: id
     };
@@ -550,7 +371,7 @@ export class UserApi extends BaseLoopBackApi {
   public findById(id: any, filter: LoopBackFilterInterface = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/:id";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id";
     let urlParams: any = {
       id: id
     };
@@ -581,7 +402,7 @@ export class UserApi extends BaseLoopBackApi {
   public find(filter: LoopBackFilterInterface = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users";
     let urlParams: any = {
     };
 
@@ -611,7 +432,7 @@ export class UserApi extends BaseLoopBackApi {
   public findOne(filter: LoopBackFilterInterface = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/findOne";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/findOne";
     let urlParams: any = {
     };
 
@@ -642,7 +463,7 @@ export class UserApi extends BaseLoopBackApi {
   public updateAll(where: any = undefined, data: any = undefined) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/update";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/update";
     let urlParams: any = {
     };
 
@@ -672,7 +493,7 @@ export class UserApi extends BaseLoopBackApi {
   public deleteById(id: any) {
     let method: string = "DELETE";
 
-    let url: string = this.getPath() + "/Users/:id";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id";
     let urlParams: any = {
       id: id
     };
@@ -699,7 +520,7 @@ export class UserApi extends BaseLoopBackApi {
   public count(where: any = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/count";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/count";
     let urlParams: any = {
     };
 
@@ -733,7 +554,7 @@ export class UserApi extends BaseLoopBackApi {
   public updateAttributes(id: any, data: any = undefined) {
     let method: string = "PUT";
 
-    let url: string = this.getPath() + "/Users/:id";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/:id";
     let urlParams: any = {
       id: id
     };
@@ -762,7 +583,7 @@ export class UserApi extends BaseLoopBackApi {
   public createChangeStream(options: any = undefined) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/change-stream";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/change-stream";
     let urlParams: any = {
     };
 
@@ -800,7 +621,7 @@ export class UserApi extends BaseLoopBackApi {
   public login(credentials: any, include: any = "user") {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/login";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/login";
     let urlParams: any = {
     };
 
@@ -812,10 +633,10 @@ export class UserApi extends BaseLoopBackApi {
     let result = this.request(method, url, urlParams, params, credentials)
       .share();
       result.subscribe(
-        response => {
-          auth.setUser(response.id, response.userId, response.user);
-          auth.setRememberMe(true);
-          auth.save();
+        (response: { id: string, userId: string, user: any }) => {
+          this.auth.setUser(response.id, response.userId, response.user);
+          this.auth.setRememberMe(true);
+          this.auth.save();
         },
         () => null
       );
@@ -838,7 +659,7 @@ export class UserApi extends BaseLoopBackApi {
   public logout() {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/logout";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/logout";
     let urlParams: any = {
     };
 
@@ -848,8 +669,8 @@ export class UserApi extends BaseLoopBackApi {
       .share();
       result.subscribe(
         () => {
-          auth.clearUser();
-          auth.clearStorage();
+          this.auth.clearUser();
+          this.auth.clearStorage();
         },
         () => null
       );
@@ -874,7 +695,7 @@ export class UserApi extends BaseLoopBackApi {
   public confirm(uid: string, token: string, redirect: string = undefined) {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users/confirm";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/confirm";
     let urlParams: any = {
     };
 
@@ -900,7 +721,7 @@ export class UserApi extends BaseLoopBackApi {
   public resetPassword(options: any) {
     let method: string = "POST";
 
-    let url: string = this.getPath() + "/Users/reset";
+    let url: string = LoopBackConfig.getPath() + "/" + LoopBackConfig.getApiVersion() + "/Users/reset";
     let urlParams: any = {
     };
 
@@ -927,8 +748,8 @@ export class UserApi extends BaseLoopBackApi {
   public getCurrent(): any {
     let method: string = "GET";
 
-    let url: string = this.getPath() + "/Users" + "/:id";
-    let id: any = auth.getCurrentUserId();
+    let url: string = LoopBackConfig.getPath() + "/Users" + "/:id";
+    let id: any = this.auth.getCurrentUserId();
     if (id == null) {
       id = '__anonymous__';
     }
@@ -938,13 +759,13 @@ export class UserApi extends BaseLoopBackApi {
 
     let result = this.request(method, url, urlParams)
       .share();
-      result.subscribe(
-        response => {
-          auth.setCurrentUserData(response);
-          return response.resource;
-        },
-        () => null
-      );
+    result.subscribe(
+      (response: { resource: any }) => {
+        this.auth.setCurrentUserData(response);
+        return response.resource;
+      },
+      () => null
+    );
     return result;
   }
 
@@ -958,7 +779,7 @@ export class UserApi extends BaseLoopBackApi {
    * @returns object A User instance.
    */
   public getCachedCurrent() {
-    return auth.getCurrentUserData();
+    return this.auth.getCurrentUserData();
   }
 
   /**
@@ -976,7 +797,7 @@ export class UserApi extends BaseLoopBackApi {
    * @returns object Id of the currently logged-in user or null.
    */
   public getCurrentId() {
-    return auth.getCurrentUserId();
+    return this.auth.getCurrentUserId();
   }
 
   /**
@@ -987,384 +808,4 @@ export class UserApi extends BaseLoopBackApi {
     return "User";
   }
 }
-
-/**
- * Api for the `Todo` model.
- */
-@Injectable()
-export class TodoApi extends BaseLoopBackApi {
-
-  constructor(
-    @Inject(Http) http: Http,
-    @Optional() @Inject(ErrorHandler) errorHandler: ErrorHandler
-  ) {
-    super(http, errorHandler);
-  }
-
-  /**
-   * Create a new instance of the model and persist it into the data source.
-   *
-   * @param object data Request data.
-   *
-   * This method expects a subset of model properties as request parameters.
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public create(data: any = undefined) {
-    let method: string = "POST";
-
-    let url: string = this.getPath() + "/todos";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params, data);
-    return result;
-  }
-
-  /**
-   * Create a new instance of the model and persist it into the data source.
-   *
-   * @param object data Request data.
-   *
-   * This method expects a subset of model properties as request parameters.
-   *
-   * @returns object[] An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public createMany(data: any = undefined) {
-    let method: string = "POST";
-
-    let url: string = this.getPath() + "/todos";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params, data);
-    return result;
-  }
-
-  /**
-   * Update an existing model instance or insert a new one into the data source.
-   *
-   * @param object data Request data.
-   *
-   * This method expects a subset of model properties as request parameters.
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public upsert(data: any = undefined) {
-    let method: string = "PUT";
-
-    let url: string = this.getPath() + "/todos";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params, data);
-    return result;
-  }
-
-  /**
-   * Check whether a model instance exists in the data source.
-   *
-   * @param any id Model id
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * Data properties:
-   *
-   *  - `exists` – `{boolean}` - 
-   */
-  public exists(id: any) {
-    let method: string = "GET";
-
-    let url: string = this.getPath() + "/todos/:id/exists";
-    let urlParams: any = {
-      id: id
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Find a model instance by id from the data source.
-   *
-   * @param any id Model id
-   *
-   * @param object filter Filter defining fields and include
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public findById(id: any, filter: LoopBackFilterInterface = undefined) {
-    let method: string = "GET";
-
-    let url: string = this.getPath() + "/todos/:id";
-    let urlParams: any = {
-      id: id
-    };
-
-    let params: any = {};
-    if (filter !== undefined) {
-      params.filter = filter;
-    }
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Find all instances of the model matched by filter from the data source.
-   *
-   * @param object filter Filter defining fields, where, include, order, offset, and limit
-   *
-   * @returns object[] An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public find(filter: LoopBackFilterInterface = undefined) {
-    let method: string = "GET";
-
-    let url: string = this.getPath() + "/todos";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-    if (filter !== undefined) {
-      params.filter = filter;
-    }
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Find first instance of the model matched by filter from the data source.
-   *
-   * @param object filter Filter defining fields, where, include, order, offset, and limit
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public findOne(filter: LoopBackFilterInterface = undefined) {
-    let method: string = "GET";
-
-    let url: string = this.getPath() + "/todos/findOne";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-    if (filter !== undefined) {
-      params.filter = filter;
-    }
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Update instances of the model matched by where from the data source.
-   *
-   * @param object where Criteria to match model instances
-   *
-   * @param object data Request data.
-   *
-   * This method expects a subset of model properties as request parameters.
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * The number of instances updated
-   */
-  public updateAll(where: any = undefined, data: any = undefined) {
-    let method: string = "POST";
-
-    let url: string = this.getPath() + "/todos/update";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-    if (where !== undefined) {
-      params.where = where;
-    }
-
-    let result = this.request(method, url, urlParams, params, data);
-    return result;
-  }
-
-  /**
-   * Delete a model instance by id from the data source.
-   *
-   * @param any id Model id
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public deleteById(id: any) {
-    let method: string = "DELETE";
-
-    let url: string = this.getPath() + "/todos/:id";
-    let urlParams: any = {
-      id: id
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Count instances of the model matched by where from the data source.
-   *
-   * @param object where Criteria to match model instances
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * Data properties:
-   *
-   *  - `count` – `{number}` - 
-   */
-  public count(where: any = undefined) {
-    let method: string = "GET";
-
-    let url: string = this.getPath() + "/todos/count";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-    if (where !== undefined) {
-      params.where = where;
-    }
-
-    let result = this.request(method, url, urlParams, params);
-    return result;
-  }
-
-  /**
-   * Update attributes for a model instance and persist it into the data source.
-   *
-   * @param any id PersistedModel id
-   *
-   * @param object data Request data.
-   *
-   * This method expects a subset of model properties as request parameters.
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * <em>
-   * (The remote method definition does not provide any description.
-   * This usually means the response is a `Todo` object.)
-   * </em>
-   */
-  public updateAttributes(id: any, data: any = undefined) {
-    let method: string = "PUT";
-
-    let url: string = this.getPath() + "/todos/:id";
-    let urlParams: any = {
-      id: id
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params, data);
-    return result;
-  }
-
-  /**
-   * Create a change stream.
-   *
-   * @param object data Request data.
-   *
-   *  - `options` – `{object}` - 
-   *
-   * @returns object An empty reference that will be
-   *   populated with the actual data once the response is returned
-   *   from the server.
-   *
-   * Data properties:
-   *
-   *  - `changes` – `{ReadableStream}` - 
-   */
-  public createChangeStream(options: any = undefined) {
-    let method: string = "POST";
-
-    let url: string = this.getPath() + "/todos/change-stream";
-    let urlParams: any = {
-    };
-
-    let params: any = {};
-
-    let result = this.request(method, url, urlParams, params, options);
-    return result;
-  }
-
-
-  /**
-   * The name of the model represented by this $resource,
-   * i.e. `Todo`.
-   */
-  public getModelName() {
-    return "Todo";
-  }
-}
-
-
 

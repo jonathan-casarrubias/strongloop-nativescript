@@ -1,12 +1,11 @@
 import { Component, OnInit } from "@angular/core";
-import { HTTP_PROVIDERS } from '@angular/http';
-import { Todo } from './definitions';
-import { TodoApi } from './sdk/lb.services';
+import { Todo } from './sdk/models/Todo';
+import { API_PROVIDERS, LoopBackConfig, TodoApi } from './sdk';
 
 @Component({
     selector: "my-app",
     templateUrl: './app.component.html',
-    providers: [TodoApi, HTTP_PROVIDERS],
+    providers: [ API_PROVIDERS, TodoApi ],
 })
 export class AppComponent implements OnInit {
 
@@ -14,7 +13,9 @@ export class AppComponent implements OnInit {
   private list: Array<Todo> = new Array();
 
   constructor(private ts: TodoApi) {
-      this.ts.setBaseURL('http://192.168.0.1:3000/api');
+      // Update with your API Address, IP in same network or DNS
+      LoopBackConfig.setBaseURL('http://192.168.100.5:3000');
+      LoopBackConfig.setApiVersion('api');
   }
 
   ngOnInit() {
