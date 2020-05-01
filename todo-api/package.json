@@ -6,7 +6,9 @@
     "start": "node .",
     "pretest": "jshint .",
     "posttest": "nsp check",
-    "build:sdk": "./node_modules/.bin/lb-ng server/server.js ../todo-app/app/sdk -l nativescript2"
+    "build:sdk": "./node_modules/.bin/lb-ng server/server.js ../todo-app/app/sdk -l nativescript2",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "dependencies": {
     "compression": "^1.0.3",
@@ -17,7 +19,8 @@
     "loopback-component-explorer": "^2.4.0",
     "loopback-connector-mongodb": "^1.15.2",
     "loopback-datasource-juggler": "^2.39.0",
-    "serve-favicon": "^2.0.1"
+    "serve-favicon": "^2.0.1",
+    "snyk": "^1.316.1"
   },
   "devDependencies": {
     "jshint": "^2.5.6",
@@ -29,5 +32,6 @@
     "url": ""
   },
   "license": "UNLICENSED",
-  "description": "todo-api"
+  "description": "todo-api",
+  "snyk": true
 }
